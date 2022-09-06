@@ -31,7 +31,7 @@ async function createAuction(event, context) {
   // that's why we have used .promise() and await
   // it is applicable to all dynamodb, S3 bucket or other services 
   await dynamoDB.put({
-    TableName: 'AuctionTable',
+    TableName: process.env.AUCTIONS_TABLE_NAME,
     Item: auction
   }).promise();
   
