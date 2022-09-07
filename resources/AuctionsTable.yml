@@ -6,6 +6,25 @@ AuctionsTable:
     AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
+      - AttributeName: status
+        AttributeType: S
+      - AttributeName: endingAt
+        AttributeType: S
     KeySchema:
+      # primary partition index
       - AttributeName: id
         KeyType: HASH
+    GlobalSecondaryIndexes:
+      # global secondary partition index
+      - IndexName: statusAndEndDate
+        KeySchema:
+          - AttributeName: status
+            KeyType: HASH
+          - AttributeName: endingAt
+            KeyType: RANGE
+        Projection:
+          # when we creates the global sec. index dynamo db creates a virual copy of table
+          # projection keeps attributes defined in keyschema to virtual table 
+          # when we query based on a status and endingAt
+          # then I will get all the attibuts of the items in my table
+          ProjectionType: ALL

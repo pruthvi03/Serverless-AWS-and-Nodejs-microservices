@@ -20,13 +20,29 @@ async function getAuctions(event, context) {
 
     // lambdas can only run up to 15 minutes. 
 
+    const { status } = event.queryStringParameters;
+
     let auctions;
 
+    const params = {
+        TableName: process.env.AUCTIONS_TABLE_NAME,
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+            '#status': 'status'
+        },
+        ExpressionAttributeValues: {
+            ':status': status
+        }
+    }
+
     try {
-        // currently, we are using scan operation, which should be avoidable in most cases
-        const result = await dynamoDB.scan({
-            TableName: process.env.AUCTIONS_TABLE_NAME
-        }).promise();
+        // // currently, we are using scan operation, 
+        // // which should be avoidable in most cases
+        // const result = await dynamoDB.scan({
+        //     TableName: process.env.AUCTIONS_TABLE_NAME
+        // }).promise();
+
+        const result = await dynamoDB.query(params).promise();
 
         auctions = result.Items;
 

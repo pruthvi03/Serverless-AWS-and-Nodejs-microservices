@@ -23,6 +23,8 @@ async function createAuction(event, context) {
 
   const { title } = event.body;
   const now = new Date();
+  const endDate = new Date();
+  endDate.setHours(now.getHours() + 1);
   // id is partition key in DynamoDB's AuctionsTable
   // so it must be unique
   const auction = {
@@ -30,6 +32,7 @@ async function createAuction(event, context) {
     title,
     status: 'OPEN',
     createdAt: now.toISOString(),
+    endingAt: endDate.toISOString(),
     highestBid: {
       amount: 0,
     },
@@ -60,3 +63,5 @@ async function createAuction(event, context) {
 export const handler = commonMiddleware(createAuction);
 // you can still add middy middlware by adding .use(middlware)
 
+
+// sls deploy -f getAuctions -v
