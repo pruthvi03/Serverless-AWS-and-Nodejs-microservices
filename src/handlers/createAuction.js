@@ -1,13 +1,10 @@
 import { v4 as uuid } from 'uuid';
 import AWS from 'aws-sdk';
 
-import middy from '@middy/core'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import httpEventNormalizer from '@middy/http-event-normalizer'
-import httpErrorHandler from '@middy/http-error-handler'
+import commonMiddleware from '../lib/commonMiddleware';
 
 // used to create http error in very declarative way 
-import createError from 'http-errors'
+import createError from 'http-errors';
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 
@@ -32,7 +29,10 @@ async function createAuction(event, context) {
     id: uuid(),
     title,
     status: 'OPEN',
-    createdAt: now.toISOString()
+    createdAt: now.toISOString(),
+    highestBid: {
+      amount: 0,
+    },
   };
 
   try {
@@ -57,15 +57,6 @@ async function createAuction(event, context) {
 }
 
 // middy is used to add middleware to our lambda function 
-export const handler = middy(createAuction)
-  // httpJsonBodyParser: automatically parse our stringified event body.
-  .use(httpJsonBodyParser())
-  // httpEventNormalizer: automatically adjust the API Gateway objects to
-  // prevent us from accidentally having non exisiting objects when trying to 
-  // access path parameters or query parameters.
-  .use(httpEventNormalizer())
-  // httpErrorHandler: make us our handling error process smooth easy and clean
-  // by working with http-errors NPM package. 
-  .use(httpErrorHandler());
-
+export const handler = commonMiddleware(createAuction);
+// you can still add middy middlware by adding .use(middlware)
 

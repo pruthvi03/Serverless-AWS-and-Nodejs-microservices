@@ -1,6 +1,8 @@
 service:
   name: auction-service
 
+# serverless-pseudo-parameters plugins is used to access AWS metadata
+# e.x - #{AWS::Region}, #{AWS::AccountId}
 plugins:
   - serverless-bundle
   - serverless-pseudo-parameters
@@ -11,13 +13,19 @@ provider:
   memorySize: 256
   stage: ${opt:stage, 'dev'}
   region: eu-west-1
+  # environment variable defined in provider is accessible to application
+  # environment variable defined in functions is accessible to that function only
   environment:
     AUCTIONS_TABLE_NAME: ${self:custom.AuctionsTable.name}
+  # iamRoleStaments is the array of object
+  # here we have given path of the AuctionsTableIAM rule file
   iamRoleStatements:
     - ${file(iam/AuctionsTableIAM.yml):AuctionsTableIAM}
 
 resources:
   Resources:
+    # this Resources follows cloud formation sytax
+    # it contains objects of resources
     AuctionsTable: ${file(resources/AuctionsTable.yml):AuctionsTable}
 
 functions:
@@ -28,6 +36,31 @@ functions:
           method: POST
           path: /auction
 
+  getAuctions:
+    handler: src/handlers/getAuctions.handler
+    events:
+      - http:
+          method: GET
+          path: /auctions
+
+  getAuction:
+    handler: src/handlers/getAuction.handler
+    events:
+      - http:
+          method: GET
+          path: /auctions/{id}
+
+  placeBid:
+    handler: src/handlers/placeBid.handler
+    events:
+      - http:
+          method: PATCH
+          path: auction/{id}/bid
+  
+# !Ref AuctionsTable will be replaced by table name
+# !GetAtt AuctionsTable.Arn will be replaced by arn
+# e.x AuctionsTable.name = AuctionsTable-dev or AuctionsTable-stage
+# AuctionsTable.Arn = arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/AuctionTable
 custom:
   AuctionsTable:
     name: !Ref AuctionsTable
