@@ -17,16 +17,20 @@ provider:
   # environment variable defined in functions is accessible to that function only
   environment:
     AUCTIONS_TABLE_NAME: ${self:custom.AuctionsTable.name}
+    AUCTIONS_BUCKET_NAME: ${self:custom.AuctionsBucket.name}
   # iamRoleStaments is the array of object
   # here we have given path of the AuctionsTableIAM rule file
   iamRoleStatements:
     - ${file(iam/AuctionsTableIAM.yml):AuctionsTableIAM}
+    - ${file(iam/AuctionsBucketIAM.yml):AuctionsBucketIAM}
 
 resources:
   Resources:
     # this Resources follows cloud formation sytax
     # it contains objects of resources
     AuctionsTable: ${file(resources/AuctionsTable.yml):AuctionsTable}
+    AuctionsBucket: ${file(resources/AuctionsBucket.yml):AuctionsBucket}
+    AuctionsBucketPolicy: ${file(resources/AuctionsBucket.yml):AuctionsBucketPolicy}
 
 functions:
   createAuction:
@@ -55,7 +59,7 @@ functions:
     events:
       - http:
           method: PATCH
-          path: /auction/{id}/bid
+          path: auction/{id}/bid
 
   processAuctions:
     handler: src/handlers/processAuctions.handler
@@ -64,7 +68,24 @@ functions:
     # # It is a service that helps in scheduling events
     # # you can use cron syntax or can use rate
     #   - schedule: rate(1 minute)
-  
+
+  # lambda function to upload picture to S3 bucket
+  uploadAuctionPicture:
+    handler: src/handlers/uploadAuctionPicture.handler
+    events:
+      - https:
+          methods: PATCH
+          path: auction/{id}/picture
+
+  # lambda function to be triggered whenever a new object is created
+  # in s3 bucket
+  uploadHandler:
+    handler: src/handlers/uploadHandler.handler
+    events:
+      - s3:
+          bucket: ${self:custom.AuctionsBucket.name}
+          event: s3:ObjectCreated:*
+
 # !Ref AuctionsTable will be replaced by table name
 # !GetAtt AuctionsTable.Arn will be replaced by arn
 # e.x AuctionsTable.name = AuctionsTable-dev or AuctionsTable-stage
@@ -73,3 +94,9 @@ custom:
   AuctionsTable:
     name: !Ref AuctionsTable
     arn: !GetAtt AuctionsTable.Arn
+  # Amazon S3 bucket is global.
+  # there are not region specific.
+  # as buckets are global name should be unique across entire AWS platform
+  # name should be in lowercase
+  AuctionsBucket:
+    name: auctions-bucket-4nj454-${self.provider.stage}
