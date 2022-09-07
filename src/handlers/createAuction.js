@@ -3,6 +3,9 @@ import AWS from 'aws-sdk';
 
 import commonMiddleware from '../lib/commonMiddleware';
 
+import validator from '@middy/validator';
+import createAuctionSchema from '../lib/schemas/createAuctionSchema';
+
 // used to create http error in very declarative way 
 import createError from 'http-errors';
 
@@ -60,8 +63,9 @@ async function createAuction(event, context) {
 }
 
 // middy is used to add middleware to our lambda function 
-export const handler = commonMiddleware(createAuction);
+export const handler = commonMiddleware(createAuction)
 // you can still add middy middlware by adding .use(middlware)
+  .use(validator({ inputSchema: createAuctionSchema }));
 
 
 // sls deploy -f getAuctions -v

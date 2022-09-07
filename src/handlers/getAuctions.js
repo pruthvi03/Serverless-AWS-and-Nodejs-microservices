@@ -2,6 +2,9 @@ import AWS from 'aws-sdk';
 
 import commonMiddleware from '../lib/commonMiddleware';
 
+import validator from '@middy/validator';
+import getAuctionsSchema from '../lib/schemas/getAuctionsSchema';
+
 // used to create http error in very declarative way 
 import createError from 'http-errors';
 
@@ -61,5 +64,6 @@ async function getAuctions(event, context) {
 
 // middy is used to add middleware to our lambda function 
 export const handler = commonMiddleware(getAuctions)
+    .use(validator({ inputSchema: getAuctionsSchema, useDefaults: true }));
 
 
