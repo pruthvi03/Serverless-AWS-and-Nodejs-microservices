@@ -10,7 +10,7 @@ import createAuctionSchema from '../lib/schemas/createAuctionSchema';
 import createError from 'http-errors';
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
-
+const sns = new AWS.SNS() 
 
 async function createAuction(event, context) {
   // event -> will have all the information about event or execution stuff like
@@ -49,6 +49,12 @@ async function createAuction(event, context) {
       TableName: process.env.AUCTIONS_TABLE_NAME,
       Item: auction
     }).promise();
+    
+    await sns.publish({
+      Message: `Auction ${auction.title} is started!`,
+      TopicArn: process.env.AUCTION_TOPIC_ARN
+    }).promise();
+
   } catch (error) {
     console.log(error);
     throw new createError.InternalServerError(error);

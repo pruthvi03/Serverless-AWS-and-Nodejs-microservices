@@ -18,11 +18,28 @@ provider:
   environment:
     AUCTIONS_TABLE_NAME: ${self:custom.AuctionsTable.name}
     AUCTIONS_BUCKET_NAME: ${self:custom.AuctionsBucket.name}
+    MAIL_QUEUE_URL: ${self:custom.MailQueue.url}
+    AUCTIONS_START_QUEUE_URL: ${self:custom.AuctionStartQueue.url}
+    AUCTION_TOPIC_ARN: ${self:custom.AuctionTopic.arn}
   # iamRoleStaments is the array of object
   # here we have given path of the AuctionsTableIAM rule file
   iamRoleStatements:
     - ${file(iam/AuctionsTableIAM.yml):AuctionsTableIAM}
     - ${file(iam/AuctionsBucketIAM.yml):AuctionsBucketIAM}
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+        - sqs:ReceiveMessage
+      Resources: ${self:custom.AuctionStartQueue.arn}
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+        - sqs:ReceiveMessage
+      Resources: ${self:custom.MailQueue.arn}
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resources: ${self:custom.AuctionTopic.arn}
 
 resources:
   Resources:
@@ -31,6 +48,56 @@ resources:
     AuctionsTable: ${file(resources/AuctionsTable.yml):AuctionsTable}
     AuctionsBucket: ${file(resources/AuctionsBucket.yml):AuctionsBucket}
     AuctionsBucketPolicy: ${file(resources/AuctionsBucket.yml):AuctionsBucketPolicy}
+
+    # __________________________________________________
+    AuctionTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: AuctionStart-${self:provider.stage}
+        Subscription:
+          - Endpoint: ${self:custom.MailQueue.arn}
+            Protocol: sqs
+
+    AuctionStartQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.AuctionStartQueue.name}
+        FifoQueue: true
+    # policy allows SNS to publish to SQS queue 
+    SnsToSQSPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - Ref: AuctionStartQueue
+        PolicyDocument:
+          Statement:
+            - Sid: "Allow SNS publish to SQS"
+              Effect: Allow
+              Principal: '*'
+              Action: sqs:SendMessage
+              Resources: ${self:custom.AuctionStartQueue.arn}
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref AuctionTopic
+    # __________________________________________________
+    
+    MailQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.MailQueue.name}
+        FifoQueue: true
+
+  
+  # Outputs:
+  #   MailQueueArn:
+  #     Value: ${self:custom.MailQueue.arn}
+  #     Export:
+  #       Name: ${self:custom.MailQueue.name}-Arn
+  #   MailQueueUrl:
+  #     Value: ${self:custom.MailQueue.url}
+  #     Export:
+  #       Name: ${self:custom.MailQueue.name}-Url
+
 
 functions:
   createAuction:
@@ -86,6 +153,25 @@ functions:
           bucket: ${self:custom.AuctionsBucket.name}
           event: s3:ObjectCreated:*
 
+  # recieves the message from AuctionStartQueue
+  # AuctionStartQueue recieves the message from AuctionTopic sns
+  auctionStarted:
+    handler: src/handlers/auctionStarted.handler
+    events:
+      - sqs:
+          arn: ${self:custom.AuctionStartQueue.arn}
+          batchSize: 1
+
+  # recieves the message from MailQueue
+  notifyAuctionEnded:
+    handler: src/handlers/notifyAuctionEnded.handler
+    events:
+      - sqs:
+          arn: ${self:custom.MailQueue.arn}
+          # default batch size is 10 and it is also max
+          batchSize: 1
+
+
 # !Ref AuctionsTable will be replaced by table name
 # !GetAtt AuctionsTable.Arn will be replaced by arn
 # e.x AuctionsTable.name = AuctionsTable-dev or AuctionsTable-stage
@@ -99,4 +185,18 @@ custom:
   # as buckets are global name should be unique across entire AWS platform
   # name should be in lowercase
   AuctionsBucket:
-    name: auctions-bucket-4nj454-${self.provider.stage}
+    name: auctions-bucket-4nj454-${self:provider.stage}
+
+  AuctionStartQueue:
+    arn: !GetAtt AuctionStartQueue.Arn
+    url: !GetAtt AuctionStartQueue.Url
+
+  AuctionTopic:
+    arn: !GetAtt AuctionTopic.Arn
+    url: !GetAtt AuctionTopic.Url
+
+  MailQueue:
+  # arn: ${cf:notification-service-${self:provider.stage}.MailQueueArn}
+  # url: ${cf:notification-service-${self:provider.stage}.MailQueueUrl}
+  arn: !GetAtt MailQueue.Arn
+  url: !GetAtt MailQueue.Url
