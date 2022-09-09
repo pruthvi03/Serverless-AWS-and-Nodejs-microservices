@@ -155,8 +155,8 @@ functions:
 
   # recieves the message from AuctionStartQueue
   # AuctionStartQueue recieves the message from AuctionTopic sns
-  auctionStarted:
-    handler: src/handlers/auctionStarted.handler
+  notifyAuctionStarted:
+    handler: src/handlers/notifyAuctionStarted.handler
     events:
       - sqs:
           arn: ${self:custom.AuctionStartQueue.arn}
